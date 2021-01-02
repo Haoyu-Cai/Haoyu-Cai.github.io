@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  
+  <title>DIANNAO论文导读 [ Hexo ]</title>
+  
+    <!-- stylesheets list from config.yml -->
+    
+      <link rel="stylesheet" href="/css/iLiKE.css">
+    
+  
+  
+  
+  <script src="//cdn1.lncld.net/static/js/3.1.1/av-min.js"></script>
+    <script id="leancloud">
+      AV.init({
+          appId: "6E5zTbTljdUbVW2WkXPsXGJk-gzGzoHsz",
+          appKey: "0vsyDKfNpeSECAI70J794ugv"
+      });
+    </script>
+
+<meta name="generator" content="Hexo 5.3.0"></head>
+<body>
+    <div class="header">
+        <div class="container">
+    <div class="menu">
+      <div class="menu-left">
+        <a href="/">
+          <img src="/favicon.ico"></img>
+        </a>
+      </div>
+      <div class="menu-right">
+        
+          
+          
+          
+          
+          
+          
+          <a href="/">Home</a>
+        
+          
+          
+          
+          
+          
+          
+          <a href="/archives">Archives</a>
+        
+          
+          
+          
+          
+          
+          
+          <a href="/about">About</a>
+        
+      </div>
+    </div>
+</div>
+    </div>
+    <div class="container">
+        <h1 class="post-title">DIANNAO论文导读</h1>
+<article class="post markdown-style">
+  <h2 id="DIANNAO论文导读"><a href="#DIANNAO论文导读" class="headerlink" title="DIANNAO论文导读"></a>DIANNAO论文导读</h2><p>DIANNAO系列论文是寒武纪人工智能加速芯片的理论依据。<br>对于研究人工智能硬件加速领域的学者而言，DIANNAO系列论文是不可不读的经典之作。</p>
+<h3 id="DIANNAO的前世今生"><a href="#DIANNAO的前世今生" class="headerlink" title="DIANNAO的前世今生"></a>DIANNAO的前世今生</h3><p><img src="https://wx1.sinaimg.cn/large/006W6gr8ly1g9n98m3u9jj30zh0h5wg3.jpg" alt="img"><br>本文是对 <code>DianNao: A Small-Footprint High-Throughput Accelerator for Ubiquitous Machine-Learning</code> 的内容做一个简介</p>
+<h3 id="论文简介"><a href="#论文简介" class="headerlink" title="论文简介"></a>论文简介</h3><p>作者认为截止到2014年为止体系结构领域存在三大趋势：</p>
+<ul>
+<li>异构多核架构成为主流<ul>
+<li>需要高效灵活的加速器</li>
+</ul>
+</li>
+<li>许多新的高性能及嵌入式应用和所有的人工智能应用都依赖于机器学习<ul>
+<li>需要优化机器学习的性能</li>
+</ul>
+</li>
+<li>基于神经网络（尤其是CNN和DNN）的有限几种技术在许多应用场景中都是最有效且最先进的。<ul>
+<li>对CNN和DNN等少数几种算法进行优化</li>
+</ul>
+</li>
+</ul>
+<p>于是得出结论：设计一种专门加速CNN和DNN的加速器的需求非常合理且迫切。</p>
+<p>那么他们是否成功了呢？<br>事实证明他们成功了，并提出了一种65nm的设计，该设计可以在每3.02mm2的空间、485mW的功耗（不包括主存储器访问）每1.02ns并行执行496个16位定点运算，即452 GOP / s。在CNN和DNN中建立的10层最大网络中，该加速器比时钟频率为2GHz的128位SIMD内核平均快117.87倍，能源效率（包括主存储器访问）平均提高21.08倍。<br><img src="https://wx3.sinaimg.cn/large/006W6gr8ly1g9n9ldl6ejj30eb0byts1.jpg" alt="img"></p>
+<blockquote>
+<p>以上为该芯片的布局图</p>
+</blockquote>
+<p>于是问题来了, 怎样的设计能达到这样的性能我们先介绍一下一些必须知道的CNN性质再回答这个问题</p>
+<h3 id="基础知识"><a href="#基础知识" class="headerlink" title="基础知识"></a>基础知识</h3><h4 id="Processing-vs-training"><a href="#Processing-vs-training" class="headerlink" title="Processing vs. training."></a>Processing vs. training.</h4><p>在工业界，离线训练往往比在线训练更有效且更常见。所以本文作者专注于前馈网络进行加速。（注意反向传播性质与前馈网络的计算与内存访问模式相似。所以在未来的研究中有可能支持训练）</p>
+<h4 id="General-structure"><a href="#General-structure" class="headerlink" title="General structure."></a>General structure.</h4><p>卷积神经网络的一般结构如下：<br><img src="https://wx1.sinaimg.cn/large/006W6gr8ly1g9n9r31h0ij30kj0b8dja.jpg" alt="img"><br>卷积、池化、分类是卷积神经网络中的一般操作。我们分别讲解一下它们的特征</p>
+<h4 id="Convolutional-layers"><a href="#Convolutional-layers" class="headerlink" title="Convolutional layers."></a>Convolutional layers.</h4><p>一个简单的卷积映射如下图所示。<br><img src="https://img2018.cnblogs.com/blog/1226410/201810/1226410-20181009202815705-1130979104.gif" alt="img"><br>更一般的卷积映射如下<br><img src="http://xukeqiniu.xukeai.cn/%E5%8D%B7%E7%A7%AF%E8%AE%A1%E7%AE%97%E5%9B%BE%E7%A4%BA.gif" alt="img"><br>存在多个输入特征图和输出特征图。图中动态显示了计算其中一层输出特征图的状态。每一层输出特征图的计算逻辑都是相同的，但不同层的计算使用的kernel或者说filter是不同的；图中左边的kernel是另一个输出图层所使用的。<br>这里强调一下 private kernel 和 shared kernel的 区别：<br><strong>每个时间步在动图上计算一个结果，privete kernel 就意味着每个时间步使用的 kernel 都不一样</strong><br>文章中给出了一个卷积层运算的示意图，这里把输入特征图叠到一起，把输出特征图叠到一起。图中表示进行单个上图中的映射计算。<br><img src="https://wx2.sinaimg.cn/large/006W6gr8ly1g9nae215nej30f408vta1.jpg" alt="img"></p>
+<h4 id="Pooling-layers"><a href="#Pooling-layers" class="headerlink" title="Pooling layers."></a>Pooling layers.</h4><p>　　为了有效地减少计算量，CNN使用的另一个有效的工具被称为“池化(Pooling)”。池化就是将输入图像进行缩小，减少像素信息，只保留重要信息。<br>　　池化的操作也很简单，通常情况下，池化区域是2<em>2大小，然后按一定规则转换成相应的值，例如取这个池化区域内的最大值（max-pooling）、平均值（mean-pooling）等，以这个值作为结果的像素值。<br>　　下图显示了左上角2</em>2池化区域的max-pooling结果，取该区域的最大值max(0.77,-0.11,-0.11,1.00)，作为池化后的结果，如下图：<br><img src="https://static.oschina.net/uploads/space/2018/0210/003312_A4YP_876354.png" alt="img"><br>　　池化区域往左，第二小块取大值max(0.11,0.33,-0.11,0.33)，作为池化后的结果，如下图：<br><img src="https://static.oschina.net/uploads/space/2018/0210/003318_39Ru_876354.png" alt="img"><br>　　其它区域也是类似，取区域内的最大值作为池化后的结果，最后经过池化后，结果如下：<br><img src="https://static.oschina.net/uploads/space/2018/0210/003323_Jy2u_876354.png" alt="img"><br>　　对所有的feature map执行同样的操作，结果如下：<br><img src="https://static.oschina.net/uploads/space/2018/0210/003329_XCiq_876354.png" alt="img"><br>　　最大池化（max-pooling）保留了每一小块内的最大值，也就是相当于保留了这一块最佳的匹配结果（因为值越接近1表示匹配越好）。也就是说，它不会具体关注窗口内到底是哪一个地方匹配了，而只关注是不是有某个地方匹配上了。<br>　　通过加入池化层，图像缩小了，能很大程度上减少计算量，降低机器负载。</p>
+<p>更一般的池化如左图所示，其实就是独立的对每一个特征图进行池化。运算上比卷积层更加简单。</p>
+<p><img src="https://wx4.sinaimg.cn/large/006W6gr8ly1g9naqg34r3j30fy0a6abk.jpg" alt="img"></p>
+<h4 id="Classifier-Layers"><a href="#Classifier-Layers" class="headerlink" title="Classifier Layers."></a>Classifier Layers.</h4><p>在分类之前，先对特征图进行平展化（也就是把图展开成一维数据）</p>
+<p>　　全连接层在整个卷积神经网络中起到“分类器”的作用，即通过卷积、激活函数、池化等深度网络后，再经过全连接层对结果进行识别分类。<br>　　首先将经过卷积、激活函数、池化的深度网络后的结果串起来，如下图所示：**<br><img src="https://static.oschina.net/uploads/space/2018/0210/003434_MygV_876354.png" alt="img"><br>**　　由于神经网络是属于监督学习，在模型训练时，根据训练样本对模型进行训练，从而得到全连接层的权重（如预测字母X的所有连接的权重）**<br> <img src="https://static.oschina.net/uploads/space/2018/0210/003440_MLD0_876354.png" alt="img"><br>**　　在利用该模型进行结果识别时，根据刚才提到的模型训练得出来的权重，以及经过前面的卷积、激活函数、池化等深度网络计算出来的结果，进行加权求和，得到各个结果的预测值，然后取值最大的作为识别的结果（如下图，最后计算出来字母X的识别值为0.92，字母O的识别值为0.51，则结果判定为X）**<br> <img src="https://static.oschina.net/uploads/space/2018/0210/003445_oQwf_876354.png" alt="img"><br>**　　上述这个过程定义的操作为”全连接层“(Fully connected layers)，全连接层也可以有多个，如下图：**<br> <img src="https://static.oschina.net/uploads/space/2018/0210/003451_GX0E_876354.png" alt="img">**</p>
+<p>更一般的全连接图文章中如下：<br><img src="https://wx1.sinaimg.cn/large/006W6gr8ly1g9naqv0nmfj30ay09zq3l.jpg" alt="img"></p>
+<h4 id="为什么不直接用硬件去实现大规模神经网络？"><a href="#为什么不直接用硬件去实现大规模神经网络？" class="headerlink" title="为什么不直接用硬件去实现大规模神经网络？"></a>为什么不直接用硬件去实现大规模神经网络？</h4><p>就运算符而言，它对应于两个16x1 16位多路复用器（用于段边界选择，即xi，xi + 1），一个16位乘法器（16位输出）和一个16位加法器执行插值。<br>16段系数（ai; bi）存储在一个小RAM中； 这仅通过改变RAM段系数ai就可以实现任何功能，而不仅是S形（例如，双曲正切，线性函数等）； 双段边界（xi; xi + 1）是硬连线的。<br><img src="https://wx4.sinaimg.cn/large/006W6gr8ly1g9narr7j9zj30k60ewdj4.jpg" alt="img"></p>
+<p>但是，面积，能量和延迟随着神经元数量的增加而平方增长。<br>考虑到大规模神经网络中的神经元数以千计，仅一层的完整硬件布局范围就可能在数百或数千mm2之间，因此，这种方法对于大规模神经网络是不现实的。<br>想要保证加速器计算密度较高，最多一部分神经元和突触可以在硬件中实现<br>因此加速器件需要在内存层次和计算层次架构得更加合理</p>
+<h4 id="Large-scale-Neural-Networks（图为深度卷积网络VGGNET）"><a href="#Large-scale-Neural-Networks（图为深度卷积网络VGGNET）" class="headerlink" title="Large-scale Neural Networks（图为深度卷积网络VGGNET）"></a>Large-scale Neural Networks（图为深度卷积网络VGGNET）</h4><p><img src="https://wx4.sinaimg.cn/large/006W6gr8ly1g9nas8b3zmj30z90k3qav.jpg" alt="img"><br>现在的神经网络规模都是非常大的。运算数据不可能完全装进L1 Cache！(甚至L2 Cache)<br>数据换入换出将导致巨大开销。而计算上的优化前人已经做的非常好了，根据Amdahl定律减少内存传输的代价才能最大程度优化该算法。</p>
+<h3 id="优化方式"><a href="#优化方式" class="headerlink" title="优化方式"></a>优化方式</h3><p>假设：<br>使用了含缓存的加速器。<br>缓存层次结构受Intel Core i7启发：<br>L1为32KB，每行64字节，8路；<br>L2为2MB，每行64字节，8路。<br>与Core i7不同，我们假设高速缓存具有足够的存储体/端口来为neuron数组提供Tn×4字节，为synapse数组提供Tn×Ti×4字节。能将Ti<em>Tn的二层循环内的数据的Ti</em>Tn次串行计算并行化。<br>e.g.<img src="https://wx3.sinaimg.cn/mw690/006W6gr8ly1g9nasfuq62j309i01yq37.jpg" alt="img"><br>对于太大的Tn和Ti值。此类缓存的成本可能令人望而却步<br>在我们的实验中，我们使用Tn = Ti = 16。</p>
+<p>作者分别用tiled算法优化了算法的三个不同部分。优化结果如下：<br><img src="https://wx2.sinaimg.cn/large/006W6gr8ly1g9nat3c4efj30ka0ezwhb.jpg" alt="img"><br><img src="https://wx3.sinaimg.cn/large/006W6gr8ly1g9nat6gdjsj30m10h4jx7.jpg" alt="img"><br>以上是benchmark规模</p>
+<h3 id="加速器架构"><a href="#加速器架构" class="headerlink" title="加速器架构"></a>加速器架构</h3><p><img src="https://wx1.sinaimg.cn/large/006W6gr8ly1g9natdemlrj30kl0hn0wx.jpg" alt="img"><br>加速器由NFU/stroage/CP三部分组成</p>
+<h4 id="NFU"><a href="#NFU" class="headerlink" title="NFU"></a>NFU</h4><p>NFU有一下三个特性<br>· Staggered pipeline<br>通过流水线提升运行效率<br>· NFU-3 function implementation<br>前文中已表示了神经网络中激励函数的实现方式，下文不在赘述<br>· 16-bit fixed-point arithmetic operators<br>使用16位定点运算部件</p>
+<h4 id="Storage"><a href="#Storage" class="headerlink" title="Storage"></a>Storage</h4><p>Q：为什么切分buffer？使用单个多端口buffer似乎更加方便？<br>A：Concerning Width &amp; Conflicts<br>拆分结构的第一个好处是将SRAM调整为适当的读/写宽度。<br>NBin和NBout的宽度均为Tn×2字节，而SB的宽度为Tn×Tn×2字节。<br>单个读取宽度大小（例如，与高速缓存行大小相同）将是较差的权衡。<br>如果将其调整为突触，即，如果行大小为Tn×Tn×2，则从Tn×Tn×2宽数据库中读取Tn×2个字节会产生巨大的能量损失，请参见图13，该图表明 对于65nm的TSMC工艺，SRAM读取的能量是存储区宽度的函数。<br>如果将行大小调整为适合神经元，即，如果行大小为Tn×2，则读取Tn×Tn×2个字节会耗费大量时间。<br>将存储分为专用结构可以为每个读取请求获得最佳时间和精力。<br>冲突。<br>拆分存储结构的第二个好处是避免发生冲突，就像在高速缓存中那样。<br>由于我们出于成本和能源（泄漏）的原因要使存储结构的尺寸保持较小，这一点尤其重要。<br>替代解决方案是使用高度关联的缓存。<br>请考虑以下约束条件：高速缓存行（或端口数量）需要很大（Tn×Tn×2），才能以较高的速率服务于突触； 因为我们希望保持高速缓存的大小很小，所以忍受这么长的高速缓存行的唯一选择是高关联性。<br>但是，在n路高速缓存中，通过推测性地并行读取所有n路/存储库来实现快速读取。<br>结果，关联缓存的能量成本迅速增加。<br>即使是从8路关联的32KB高速缓存中读取64字节，其能耗也比从直接映射的高速缓存中32字节读取65nm的能耗高3.15倍。<br>使用CACTI进行的测量[40]。<br>即使仅使用64字节的行，Core i7的第一级32KB数据高速缓存已经是8路关联的，因此我们需要具有很大行的更大关联性（对于Tn = 16，行大小为 512字节长）。<br>换句话说，在我们的案例中，高度关联的缓存将是昂贵的能源解决方案。<br>分离存储和对位置行为的精确了解可以完全消除数据冲突。</p>
+<h5 id="Exploiting-the-locality-of-inputs-and-synapses"><a href="#Exploiting-the-locality-of-inputs-and-synapses" class="headerlink" title="Exploiting the locality of inputs and synapses"></a>Exploiting the locality of inputs and synapses</h5><ul>
+<li><p>DMAs</p>
+</li>
+<li><p>Rotating NBin buffer for temporal reuse of input neurons（pooling和conv存在overlap）</p>
+</li>
+<li><p>Local transpose in NBin for pooling layers</p>
+<p>DMA。</p>
+<p>对于空间局部性开发，我们实现了三个DMA，每个缓冲区一个（两个负载DMA，一个用于输出的存储DMA）。</p>
+<p>DMA请求以指令形式发送给NBin，稍后在第5.3.2节中进行描述。</p>
+<p>这些请求被缓冲在与每个缓冲区关联的单独的FIFO中（参见图11），并且在DMA发送了前一条指令的所有存储请求后立即发出这些请求。</p>
+<p>这些DMA请求FIFO可以将发出给所有缓冲区和NFU的请求与当前缓冲区和NFU操作解耦。</p>
+<p>因此，只要有足够的缓冲区容量，就可以提前预装DMA请求以容忍较长的等待时间。</p>
+<p>这种预加载类似于预取，尽管没有推测。</p>
+<p>由于NBin（和SB）同时用作重用和预加载缓冲器的暂存器，因此我们使用了双端口SRAM。</p>
+<p>台积电（TSMC）65nm库将64项NB的双端口SRAM的读取能量开销估计为24％。</p>
+<p>旋转NBin缓冲区，可暂时重用输入神经元。</p>
+<p>所有层的输入都分成适合NBin的块，并通过将NBin实现为循环缓冲区来重用它们。</p>
+<p>实际上，轮换自然是通过更改寄存器索引来实现的，就像在软件实现中一样，缓冲区条目没有物理（且昂贵）的移动。</p>
+<p>NBin中的本地转置用于池化层。</p>
+<p>卷积层和池化层之间对于（输入）神经元的数据结构组织存在紧张关系。</p>
+<p>如前所述，Kx； Ky通常很小（通常小于10），Ni大约大一个数量级。</p>
+<p>因此，将输入要素映射作为三维神经元数据结构的最内层索引，内存提取会更有效（长步1访问）。</p>
+<p>然而，这对于合并层是不方便的，因为每个输入特征图仅计算一个输出，即仅使用Kx×Ky数据（而在卷积层中，需要所有Kx×Ky×Ni数据来计算一个输出数据）。</p>
+<p>结果，对于池层，逻辑数据结构组织将具有kx； ky作为最里面的尺寸，以便将计算一个输出所需的所有输入连续存储在NBin缓冲区中。</p>
+<p>我们通过在NBin中引入映射函数来解决此问题，该函数具有局部转置循环ky的作用； kx和循环i，以便沿循环i加载数据，但将其存储在NBin中，然后沿循环ky发送到NFU； kx首先； 这是通过在加载数据时将数据插入NBin来实现的，请参见图14。</p>
+<p>如第3节所述，对于突触和SB，没有重用（分类器层，具有专用内核和池化层的卷积层），也没有在卷积层中重用共享内核。</p>
+<p>对于输出和NBout，我们需要重用部分和，即 ，参见图5中的参考sum [n]。这种重用需要在下一节中说明的其他硬件修改。</p>
+</li>
+</ul>
+<h5 id="Exploiting-the-locality-of-outputs"><a href="#Exploiting-the-locality-of-outputs" class="headerlink" title="Exploiting the locality of outputs."></a>Exploiting the locality of outputs.</h5><ul>
+<li><p>Dedicated registers</p>
+</li>
+<li><p>Circular buffer （reuse NBout） 绝妙的观察！</p>
+<table>
+<thead>
+<tr>
+<th>是否活跃</th>
+<th>NFU-1</th>
+<th>NFU-2</th>
+<th>NFU-3</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>POOL</td>
+<td>√</td>
+<td>√</td>
+<td>×</td>
+</tr>
+<tr>
+<td>CONV</td>
+<td>√</td>
+<td>√</td>
+<td>if 写入Nbout then 活跃 /if 不写入 Nbout 不活跃</td>
+</tr>
+<tr>
+<td>CLASS</td>
+<td>√</td>
+<td>√</td>
+<td>if 写入Nbout then 活跃 /if 不写入 Nbout 不活跃</td>
+</tr>
+</tbody></table>
+</li>
+</ul>
+
+</article>
+
+    <div class="pagenator post-pagenator">
+    
+    
+
+    
+    <p>last update time 2021-01-02</p>
+    
+    
+        <a class="extend next post-next" href="/2021/01/02/git/">next</a>
+    
+    </div>
+
+    </div>
+    <div class="footer">
+        <div class="container">
+    <div class="social">
+	<ul class="social-list">
+		
+			
+				
+				
+				<li>
+					<a href="mailto:1178752402@qq.com" title="email" target="_blank">
+					<i class="fa fa-email"></i>
+					</a>
+				</li>
+			
+		
+			
+		
+			
+		
+			
+		
+			
+		
+			
+		
+			
+				
+				<li>
+					<a href="https://github.com/CaiChenghan" title="github" target="_self">
+					<i class="fa fa-github"></i>
+					</a>
+				</li>
+			
+		
+			
+		
+			
+		
+			
+		
+			
+				
+				<li>
+					<a href="https://www.jianshu.com/u/565c8e790605" title="jianshu" target="_self">
+					<i class="fa fa-jianshu"></i>
+					</a>
+				</li>
+			
+		
+			
+		
+			
+		
+			
+		
+	</ul>
+</div>
+    <div class="copyright">
+        <span>
+            
+            
+            
+                © John Doe 2017 - 2021
+            
+        </span>
+    </div>
+    <div class="power">
+        <span>
+            Powered by <a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a> & <a target="_blank" rel="noopener" href="https://github.com/CaiChenghan/iLiKE">iLiKE Theme</a>
+        </span>
+    </div>
+    <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.js"></script>
+    <!--page counter part-->
+<script>
+function addCount (Counter) {
+    url=$('.article-date').attr('href').trim();
+    title = $('.article-title').text().trim();
+    var query = new AV.Query(Counter);
+    //use url as unique idnetfication
+    query.equalTo("url",url);
+    query.find({
+        success: function(results) {
+            if (results.length>0) {
+                var counter=results[0];
+                counter.fetchWhenSave(true); //get recent result
+                counter.increment("time");
+                counter.save();
+            } else {
+                var newcounter=new Counter();
+                newcounter.set("title",title);
+                newcounter.set("url",url);
+                newcounter.set("time",1);
+                newcounter.save(null,{
+                    success: function(newcounter) {
+                        //alert('New object created');
+                    }, error: function(newcounter,error) {
+                        alert('Failed to create');
+                    }
+                })
+            }
+        },
+        error: function(error) {
+            //find null is not a error
+            alert('Error:'+error.code+" "+error.message);
+        }
+    });
+}
+$(function() {
+    var Counter=AV.Object.extend("Counter");
+    //only increse visit counting when intering a page
+    if ($('.article-title').length == 1) {
+       addCount(Counter);
+    }
+    var query=new AV.Query(Counter);
+    query.descending("time");
+    // the sum of popular posts
+    query.limit(10); 
+    query.find({
+        success: function(results) {
+                for(var i=0;i<results.length;i++) {
+                    var counter=results[i];
+                    title=counter.get("title");
+                    url=counter.get("url");
+                    time=counter.get("time");
+                    // add to the popularlist widget
+                    showcontent=title+" ("+time+")";
+                    //notice the "" in href
+                    $('.popularlist').append('<li><a href="'+url+'">'+showcontent+'</a></li>');
+                }
+            },
+        error: function(error) {
+            alert("Error:"+error.code+" "+error.message);
+        }
+    });
+});
+</script>
+</div>
+    </div>
+</body>
+</html>
