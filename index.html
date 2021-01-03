@@ -99,6 +99,198 @@
   
     
       <article
+  id="post-Tensorflow"
+  class="article article-type-post"
+>
+
+  
+
+  <div class="article-inner">
+    
+
+    <div class="article-body">
+      <header class="article-title">
+        <a href="/2021/01/03/Tensorflow/">Tensorflow</a>
+      </header>
+      <div class="article-entry post-inner-html">
+        
+          <h2 id="TensorFlow的设计思路浅析"><a href="#TensorFlow的设计思路浅析" class="headerlink" title="TensorFlow的设计思路浅析"></a>TensorFlow的设计思路浅析</h2><h3 id="问：为什么要了解深度学习框架相关的内容？"><a href="#问：为什么要了解深度学习框架相关的内容？" class="headerlink" title="问：为什么要了解深度学习框架相关的内容？"></a>问：为什么要了解深度学习框架相关的内容？</h3><p>目前的大规模深度学习网络往往在异构智能计算系统上运行。</p>
+<h4 id="现今采用异构智能计算系统的主要原因"><a href="#现今采用异构智能计算系统的主要原因" class="headerlink" title="现今采用异构智能计算系统的主要原因:"></a>现今采用异构智能计算系统的主要原因:</h4><p>近十年来通用 CPU 的计算能力增长近乎停滞，而智能计算能力的需求在不断以指数增长，二者形成了剪刀差。例如，寒武纪深度学习处理器能够以比通用 CPU 低一个数量级的能耗，达到 100 倍以上的处理速度。</p>
+<blockquote>
+<p>现阶段的智能计算系统通常是集成CPU和智能芯片的异构系统，软件上通常包括一套面向开发者的智能计算编程环境（包括编程框架和编程语言）。<br>                            ——《智能计算系统》</p>
+</blockquote>
+<p>目前常用的深度学习编程框架包括 TensorFlow 和 MXNet 等，常用的深度学习编程语言包括 CUDA 语言和 BCL 语言等。 因此，异构系统在提高性能的同时，也带来了编程上的困难。</p>
+<p><img src="/2021/01/03/Tensorflow/image-20210103103121381.png" alt="2013年到2019年间深度学习处理器和计算机相关的重大成果统计"></p>
+<p>上图为2013年到2019年间深度学习处理器和计算机相关的重大成果统计。我们可以看到，Google不仅实现了Tensorflow，还设计了专用的TPU去支持tensorflow上的硬件加速。他们的贡献应该引起重视。</p>
+<p><img src="/2021/01/03/Tensorflow/image-20210103103315012.png" alt="image-20210103103315012"></p>
+<p>Tensorflow受欢迎的程度可谓一骑绝尘，可以说Tensorflow是当前智能计算系统的编程环境中不可或缺的一环。因此，我们得到一个结论，不论从分布式系统学习的角度、还是从硬件设计的角度；对Tensorflow的了解都是不可或缺的。</p>
+<h3 id="从Caffe谈起"><a href="#从Caffe谈起" class="headerlink" title="从Caffe谈起"></a>从Caffe谈起</h3><p>Caffe是tensorflow的原形之一，因此我们先来聊一聊Caffe。在前tensorflow时代，caffe几乎是最受欢迎的深度学习框架。</p>
+<p><img src="/2021/01/03/Tensorflow/image-20210103103547914.png" alt="image-20210103103547914"></p>
+<p>从Caffe论文的引用数量我们就大致能知晓这一框架意义之深远。而事实上，Tensorflow在设计上也深受Caffe的影响。</p>
+<p><img src="/2021/01/03/Tensorflow/image-20210103103744476.png" alt="image-20210103103744476"></p>
+<p>通过上表中的对比可知，Caffe开源，基于c++实现，支持异构计算；对当时的其它深度学习框架可称降维打击。</p>
+<p>Caffe的亮点可以归纳如下：</p>
+<ul>
+<li>Modularity. 模块化的设计理念，保证了这一框架的<strong>可扩展性</strong></li>
+<li>Test coverage. 每个模块的代码进行<strong>充分测试</strong>，未经测试的代码不会被合并</li>
+<li>Separation of representation and implementation. 神经网络的结构表示与功能实现<strong>分离</strong>，用户不必关注底层的实现</li>
+<li>Python and MATLAB bindings. 提供Python和MATLAB支持，在现有的机器学习代码的基础上进行<strong>快速原型</strong></li>
+<li>Pre-trained reference models. 提供诸多已预训练的模型（例如 AlexNet），对<strong>用户友好</strong></li>
+</ul>
+<p>Caffe中的计算图机制也值得一提。在Caffe中，计算以层（Layer）为粒度，对应于神经网络中的层，为每一层给出了前向实现和反向实现。</p>
+<p><img src="/2021/01/03/Tensorflow/image-20210103104353693.png" alt="image-20210103104353693"></p>
+<p>Caffe固然是一个优秀的框架，但同样存在诸多缺陷：</p>
+<ul>
+<li>在功能上有很多局限，例如对RNN类的网络支持有限、可部署的设备类型也受限</li>
+<li>在易用性方面也被Pytorch等主流深度学习框架赶超</li>
+<li>早期的Caffe版本已经不再维护更新</li>
+</ul>
+<h3 id="计算图的两种实现方式"><a href="#计算图的两种实现方式" class="headerlink" title="计算图的两种实现方式"></a>计算图的两种实现方式</h3><p>在介绍Tensorflow之前，我们先强调一下计算图的两种主要实现机制——动态图和静态图。而这两种机制差异的本质是编程模式。动态图基于命令式编程，而静态图基于声明式编程</p>
+<h4 id="命令式编程：以命令序列的形式来表达程序执行的逻辑"><a href="#命令式编程：以命令序列的形式来表达程序执行的逻辑" class="headerlink" title="命令式编程：以命令序列的形式来表达程序执行的逻辑"></a>命令式编程：以命令序列的形式来表达程序执行的逻辑</h4><p><img src="/2021/01/03/Tensorflow/image-20210103104649043.png" alt="image-20210103104649043"></p>
+<h4 id="声明式编程：以数据结构的形式来表达程序执行的逻辑"><a href="#声明式编程：以数据结构的形式来表达程序执行的逻辑" class="headerlink" title="声明式编程：以数据结构的形式来表达程序执行的逻辑"></a>声明式编程：以数据结构的形式来表达程序执行的逻辑</h4><h4 id=""><a href="#" class="headerlink" title=""></a><img src="/2021/01/03/Tensorflow/image-20210103104731862.png" alt="image-20210103104731862"></h4><p>动态图和静态图的区别可归纳如下，</p>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>动态计算图</th>
+<th>静态计算图</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>编程模式</td>
+<td>命令式编程</td>
+<td>声明式编程</td>
+</tr>
+<tr>
+<td>可调试性</td>
+<td>容易调试</td>
+<td>难于调试</td>
+</tr>
+<tr>
+<td>优化程度</td>
+<td>几乎没有</td>
+<td>大幅优化</td>
+</tr>
+<tr>
+<td>内存效率</td>
+<td>低</td>
+<td>高</td>
+</tr>
+<tr>
+<td>计算效率</td>
+<td>低</td>
+<td>高</td>
+</tr>
+<tr>
+<td>循环和控制</td>
+<td>使用循环和控制命令即可</td>
+<td>将控制流作为数据结构进行声明</td>
+</tr>
+</tbody></table>
+<p>Tensorflow的最初版本继承了Caffe的动态图机制，而Pytorch则采用了静态图机制。但两种框架目前都朝着兼容对方的feature的方向发展。</p>
+<h3 id="TensorFlow横空出世"><a href="#TensorFlow横空出世" class="headerlink" title="TensorFlow横空出世"></a>TensorFlow横空出世</h3><p>Tensorflow 继承了几乎所有Caffe在设计上的优点，改善了Caffe的缺陷。再加上Google的背书，在开源社区和工业界都受到欢迎。</p>
+<h4 id="TensorFlow的亮点："><a href="#TensorFlow的亮点：" class="headerlink" title="TensorFlow的亮点："></a>TensorFlow的亮点：</h4><ul>
+<li>性能极佳，充分挖掘了并行能力</li>
+<li>支持众多常见的前端语言， 覆盖云端到终端几乎所有的平台， 同时也有众多的辅助工具来支持多平台多设备使用</li>
+<li>社区繁荣， 文档完善， 对初学者友好</li>
+</ul>
+<h3 id="TensorFlow的整体架构"><a href="#TensorFlow的整体架构" class="headerlink" title="TensorFlow的整体架构"></a>TensorFlow的整体架构</h3><p>TensorFlow中的主要组件包括：</p>
+<ul>
+<li>面向各个语言的语言包 </li>
+</ul>
+<p>提供面向Python，GO等多种语言的支持，方便用户使用</p>
+<ul>
+<li>C/C++ API</li>
+</ul>
+<p>基于TensorFlow的核心代码，使用C和C++语言封装了两套API，主要面向有高性能需求的用户</p>
+<ul>
+<li>后端代码</li>
+</ul>
+<p>主要由C++实现的Tensorflow功能后端，保证可移植性和性能</p>
+<p><img src="/2021/01/03/Tensorflow/image-20210103105115796.png" alt="image-20210103105115796"></p>
+<h3 id="TensorFlow的基本运行流程"><a href="#TensorFlow的基本运行流程" class="headerlink" title="TensorFlow的基本运行流程"></a>TensorFlow的基本运行流程</h3><p><img src="/2021/01/03/Tensorflow/image-20210103105239198.png" alt="image-20210103105239198"></p>
+<p>关于TensorFlow的运行流程和具体实现这一部分内容非常多。深入讲解与本篇博客的主题偏离的较远，因此这里不再展开。</p>
+<p>这里只强调两点：</p>
+<p>第一、对于TensorFlow的早期版本而言，只支持静态图的执行。</p>
+<p>第二、TensorFlow的运行流程可以简要的概括为：用户利用TensorFlow提供的语言包进行声明式编程，定义网络结构。然后语言包通过调用名为Session.run的API将实际的执行交给后端完成。</p>
+<h3 id="TensorFlow设计之妙"><a href="#TensorFlow设计之妙" class="headerlink" title="TensorFlow设计之妙"></a>TensorFlow设计之妙</h3><h4 id="1-TensorFlow中的计算图设计"><a href="#1-TensorFlow中的计算图设计" class="headerlink" title="1.TensorFlow中的计算图设计"></a>1.TensorFlow中的计算图设计</h4><p>TensorFlow中定义了Operation作为计算图结构和功能上的基本单元。 TensorFlow中实现了多种Operation，支持加载输入、进行运算、检查点以及循环控制定义等功能；</p>
+<p><img src="/2021/01/03/Tensorflow/image-20210103105520998.png" alt="image-20210103105520998"></p>
+<p>常见的Operation如上图所示。</p>
+<p>不同功能的操作在计算图中继承同一基类具备以下优势：</p>
+<p>第一、某些公共的方法不必重复去实现，例如设置Operation的名称。</p>
+<p>第二、在下文中我们会看到对计算图的全局优化和自动求导等操作都需要在图上进行遍历；当计算图中的各单元都继承相同的基类时，我们的遍历操作更容易实现、也更加安全。</p>
+<h4 id="2-计算图的自动求导机制"><a href="#2-计算图的自动求导机制" class="headerlink" title="2.计算图的自动求导机制"></a>2.计算图的自动求导机制</h4><p>深度学习网络的执行过程一般可以归纳为三个步骤——第一、前向传播计算loss；第二、反向传播计算梯度；第三、更新参数。</p>
+<p>其中梯度计算是整个算法的核心，因此我们介绍Tensorflow中的梯度计算机制。</p>
+<p><img src="/2021/01/03/Tensorflow/image-20210103105715806.png" alt="image-20210103105715806"></p>
+<p><img src="/2021/01/03/Tensorflow/image-20210103105728441.png" alt="image-20210103105728441"></p>
+<p><img src="/2021/01/03/Tensorflow/image-20210103105743711.png" alt="image-20210103105743711"></p>
+<p>自动求导机制与其他常见求导方式对比如下：</p>
+<p><img src="/2021/01/03/Tensorflow/image-20210103105854103.png" alt="image-20210103105854103"></p>
+<p>该求导方式的优点可归纳如下：</p>
+<ul>
+<li><p>灵活，框架可以完全向用户隐藏求导过程。用户只需描述前向计算的过程， 由编程框架自动推导反向计算图， 完成导数计算</p>
+</li>
+<li><p>只对基本函数运用符号求导法， 因此可以灵活结合编程语言的循环结构、条件结构等进行求导</p>
+</li>
+</ul>
+<h4 id="3-计算图的执行模式"><a href="#3-计算图的执行模式" class="headerlink" title="3.计算图的执行模式"></a>3.计算图的执行模式</h4><p><img src="/2021/01/03/Tensorflow/image-20210103105929630.png" alt="image-20210103105929630"></p>
+<p>计算图的本地执行模式中有如下要件：</p>
+<ul>
+<li>client：通过session接口与master和worker通信</li>
+<li>master：<strong>控制</strong>所有的worker按照计算图执行</li>
+<li>worker：每一个worker负责一个或多个计算设备的仲裁访问，并根据master的指令，执行这些计算设备中的计算图</li>
+<li>设备：CPU、GPU、TPU和其他类型的加速器，此外TensorFlow支持自定义设备的<strong>注册</strong> </li>
+</ul>
+<p>首先考虑最简单的执行场景： 一个worker进程中仅包含一个设备的情况。 在该情况下：<br> 一、 计算图按照节点（对应计算图中的Operation）之间的依赖关系顺序执行 二、每个节点有一个<strong>计数器</strong>， 记录其依赖节点中尚未执行的节点数量， 一个节点执行完成， 则其所有依赖节点的计数器计数递减</p>
+<p> 三、当计数器计数为0时， 则该节点可以执行， 并将其添加到<strong>就绪队列</strong>中 </p>
+<p>当本地存在多个可用设备时，计算图需经过一系列处理后分配到各设备上运行。</p>
+<p><img src="/2021/01/03/Tensorflow/image-20210103110237585.png" alt="image-20210103110237585"></p>
+<p>处理流程总结如下：</p>
+<p><img src="/2021/01/03/Tensorflow/image-20210103110211968.png" alt="image-20210103110211968"></p>
+<h4 id="计算图剪枝"><a href="#计算图剪枝" class="headerlink" title="计算图剪枝"></a>计算图剪枝</h4><h4 id="-1"><a href="#-1" class="headerlink" title=""></a><img src="/2021/01/03/Tensorflow/image-20210103110313880.png" alt="image-20210103110313880"></h4><h4 id="计算图分配"><a href="#计算图分配" class="headerlink" title="计算图分配"></a>计算图分配</h4><p><img src="/2021/01/03/Tensorflow/image-20210103110514578.png" alt="image-20210103110514578"></p>
+<h4 id="计算图优化"><a href="#计算图优化" class="headerlink" title="计算图优化"></a>计算图优化</h4><ul>
+<li><p>TensorFlow中的图优化由Grappler模块来实现 </p>
+</li>
+<li><p>通过图优化， 可以根据不同的硬件结构调整计算调度策略， 从 而获得更快的计算速度和更高的硬件利用率 也能减少推断过程中所需的峰值内存， 从而运行更大的模型</p>
+</li>
+</ul>
+<p><img src="/2021/01/03/Tensorflow/image-20210103110544821.png" alt="image-20210103110544821"></p>
+<p>在TensorFlow中计算图优化的常见技术如下：</p>
+<p><img src="/2021/01/03/Tensorflow/image-20210103110637807.png" alt="image-20210103110637807"></p>
+<p><img src="/2021/01/03/Tensorflow/image-20210103110654969.png" alt="image-20210103110654969"></p>
+<h4 id="计算图切分"><a href="#计算图切分" class="headerlink" title="计算图切分"></a>计算图切分</h4><p><img src="/2021/01/03/Tensorflow/image-20210103110819037.png" alt="image-20210103110819037"></p>
+<p>这里有一个需要注意的点：本地多设备执行其实和分布式执行的机制是相同的；send和recv在本地通过总线或者NV-LINK协议实现数据传输，在分布式的情况下，往往通过TCP或者RDMA保证数据的可靠传输。Google的架构师通过这种方式实现了本地执行和分布式执行的统一化，在笔者看来十分优雅。</p>
+<h4 id="4-TensorFlow增加同步并行效率的设计技巧"><a href="#4-TensorFlow增加同步并行效率的设计技巧" class="headerlink" title="4.TensorFlow增加同步并行效率的设计技巧"></a>4.TensorFlow增加同步并行效率的设计技巧</h4><h4 id="TensorFlow中的并行方式包含以下几种："><a href="#TensorFlow中的并行方式包含以下几种：" class="headerlink" title="TensorFlow中的并行方式包含以下几种："></a>TensorFlow中的并行方式包含以下几种：</h4><p><img src="/2021/01/03/Tensorflow/image-20210103111108429.png" alt="image-20210103111108429"></p>
+<p>同步数据并行策略的吞吐量相对于异步数据并行策略小，但是往往有更快的收敛速度。Tensorflow 采用了一种特殊的方式，通过增加冗余资源来保证同步数据并行能达到近似异步数据并行的效率。</p>
+<p><img src="/2021/01/03/Tensorflow/image-20210103111256481.png" alt="image-20210103111256481"></p>
+<h5 id="1、在异步情况（a）下，每个worker在步骤开始时读取参数，并将梯度异步地更新到参数并应用到自身——确保了高吞吐率，但各worker中常使用过时的参数，不是非常有效。"><a href="#1、在异步情况（a）下，每个worker在步骤开始时读取参数，并将梯度异步地更新到参数并应用到自身——确保了高吞吐率，但各worker中常使用过时的参数，不是非常有效。" class="headerlink" title="1、在异步情况（a）下，每个worker在步骤开始时读取参数，并将梯度异步地更新到参数并应用到自身——确保了高吞吐率，但各worker中常使用过时的参数，不是非常有效。"></a>1、在异步情况（a）下，每个worker在步骤开始时读取参数，并将梯度异步地更新到参数并应用到自身——确保了高吞吐率，但各worker中常使用过时的参数，不是非常有效。</h5><h5 id="2、同步情况使用队列协调执行：将阻塞队列作为Barrier，以确保所有worker读取相同的参数，另一个队列收集多个梯度更新，并以原子方式应用参数。（b）情形下总吞吐量受限制。"><a href="#2、同步情况使用队列协调执行：将阻塞队列作为Barrier，以确保所有worker读取相同的参数，另一个队列收集多个梯度更新，并以原子方式应用参数。（b）情形下总吞吐量受限制。" class="headerlink" title="2、同步情况使用队列协调执行：将阻塞队列作为Barrier，以确保所有worker读取相同的参数，另一个队列收集多个梯度更新，并以原子方式应用参数。（b）情形下总吞吐量受限制。"></a>2、同步情况使用队列协调执行：将阻塞队列作为Barrier，以确保所有worker读取相同的参数，另一个队列收集多个梯度更新，并以原子方式应用参数。（b）情形下总吞吐量受限制。</h5><h5 id="3、为了解决较低效率的worke造成的瓶颈，实现了备份worker如所示（c），这与MapReduce的备份任务机制类似。-系统周期性检测是否存在落后woker-–-若存在、则备份worker主动运行，聚集将采用3个更新中的前2个。"><a href="#3、为了解决较低效率的worke造成的瓶颈，实现了备份worker如所示（c），这与MapReduce的备份任务机制类似。-系统周期性检测是否存在落后woker-–-若存在、则备份worker主动运行，聚集将采用3个更新中的前2个。" class="headerlink" title="3、为了解决较低效率的worke造成的瓶颈，实现了备份worker如所示（c），这与MapReduce的备份任务机制类似。 系统周期性检测是否存在落后woker – 若存在、则备份worker主动运行，聚集将采用3个更新中的前2个。"></a>3、为了解决较低效率的worke造成的瓶颈，实现了备份worker如所示（c），这与MapReduce的备份任务机制类似。 系统周期性检测是否存在落后woker – 若存在、则备份worker主动运行，聚集将采用3个更新中的前2个。</h5><p>该技术对于吞吐量和加速比的提升非常明显，下图为Google的实验结果。</p>
+<p><img src="/2021/01/03/Tensorflow/image-20210103111455529.png" alt="image-20210103111455529"></p>
+<p>这个设计技巧虽然简单粗暴，但是十分有效。通过增加少许计算资源突破瓶颈；是一种值得学习的设计思路。</p>
+
+        
+      </div>
+    </div>
+
+    
+
+  </div>
+
+  <footer class="article-footer">
+    <div class="article-more-info">
+      <div class="article-date">
+  <time datetime="2021-01-03T02:23:41.000Z" itemprop="datePublished">2021-01-03</time>
+</div>
+      
+      
+    </div>
+  </footer>
+
+</article>
+
+    
+  
+    
+      <article
   id="post-GEAch3"
   class="article article-type-post"
 >
@@ -159,6 +351,154 @@
   
     
       <article
+  id="post-git"
+  class="article article-type-post"
+>
+
+  
+
+  <div class="article-inner">
+    
+
+    <div class="article-body">
+      <header class="article-title">
+        <a href="/2020/06/02/git/">GIT 入门</a>
+      </header>
+      <div class="article-entry post-inner-html">
+        
+          <h3 id="GIT-入门"><a href="#GIT-入门" class="headerlink" title="GIT 入门"></a>GIT 入门</h3><p><code>git</code> 是目前最常用的分布式版本控制系统,由 linus 开发。<br>包括<code>GitHub</code>在内的许多代码托管网站均使用<code>git</code>作为版本控制器。</p>
+<h4 id="1-简单的GIT命令"><a href="#1-简单的GIT命令" class="headerlink" title="1. 简单的GIT命令"></a>1. 简单的GIT命令</h4><p>简单的 git 命令如下：</p>
+<pre><code>git init //初始化一个代码库  
+git add //把工作区的修改，提交到暂存区  
+git commit //把暂存区的修改，保存至本地库  
+git push //把本地库的记录，推送至远程库</code></pre>
+<h4 id="2-版本管理"><a href="#2-版本管理" class="headerlink" title="2. 版本管理"></a>2. 版本管理</h4><h5 id="2-1-工作区与暂存区"><a href="#2-1-工作区与暂存区" class="headerlink" title="2.1. 工作区与暂存区"></a>2.1. 工作区与暂存区</h5><p>要随时掌握工作区的状态，使用<code>git status</code>命令。</p>
+<p>如果<code>git status</code>告诉你有文件被修改过，用<code>git diff</code>可以查看修改内容。</p>
+<p><code>git add</code>命令实际上就是把要提交的所有修改放到暂存区（Stage），然后，执行<code>git commit</code>就可以一次性把暂存区的所有修改提交到分支。</p>
+<pre><code>$ git commit -m &quot;**understand** how stage works&quot;
+[master e43a48b] understand how stage works
+ 2 files changed, 2 insertions(+)
+ create mode 100644 LICENSE</code></pre>
+<p>一旦提交后，如果你又没有对工作区做任何修改，那么工作区就是“干净”的：</p>
+<pre><code>$ git status
+On branch master
+nothing to commit, working tree clean</code></pre>
+<p>现在版本库变成了这样，暂存区就没有任何内容了：</p>
+<p><img src="https://static.liaoxuefeng.com/files/attachments/919020100829536/0" alt="img"></p>
+<h5 id="2-2-版本回退"><a href="#2-2-版本回退" class="headerlink" title="2.2. 版本回退"></a>2.2. 版本回退</h5><p>现在总结一下：</p>
+<p><code>HEAD</code>指向的版本就是当前版本，因此，Git允许我们在版本的历史之间穿梭，使用命令<code>git reset --hard commit_id</code>。</p>
+<p>穿梭前，用<code>git log</code>可以查看提交历史，以便确定要回退到哪个版本。</p>
+<p>要重返未来，用<code>git reflog</code>查看命令历史，以便确定要回到未来的哪个版本。</p>
+<h5 id="2-3-撤销修改"><a href="#2-3-撤销修改" class="headerlink" title="2.3. 撤销修改"></a>2.3. 撤销修改</h5><p>场景1：当你改乱了工作区某个文件的内容，想直接丢弃工作区的修改时，用命令<code>git checkout -- file</code>。</p>
+<p>场景2：当你不但改乱了工作区某个文件的内容，还添加到了暂存区时，想丢弃修改，分两步，第一步用命令<code>git reset HEAD &lt;file&gt;</code>，就回到了场景1，第二步按场景1操作。</p>
+<h5 id="2-4-删除文件"><a href="#2-4-删除文件" class="headerlink" title="2.4. 删除文件"></a>2.4. 删除文件</h5><p>命令<code>git rm</code>用于删除一个文件。如果一个文件已经被提交到版本库，那么你永远不用担心误删，但是要小心，你只能恢复文件到最新版本，你会丢失<strong>最近一次提交后你修改的内容</strong>。</p>
+<h4 id="3-远程仓库"><a href="#3-远程仓库" class="headerlink" title="3. 远程仓库"></a>3. 远程仓库</h4><p>我们可以通过类似Github的代码托管网站使用git来管理我们的代码</p>
+<h5 id="3-1-添加远程库"><a href="#3-1-添加远程库" class="headerlink" title="3.1. 添加远程库"></a>3.1. 添加远程库</h5><p>要关联一个远程库，使用命令<code>git remote add origin git@server-name:path/repo-name.git</code>；</p>
+<p>关联后，使用命令<code>git push -u origin master</code>第一次推送master分支的所有内容；</p>
+<p>此后，每次本地提交后，只要有必要，就可以使用命令<code>git push origin master</code>推送最新修改；</p>
+<h5 id="3-2-从远程库克隆"><a href="#3-2-从远程库克隆" class="headerlink" title="3.2. 从远程库克隆"></a>3.2. 从远程库克隆</h5><p>要克隆一个仓库，首先必须知道仓库的地址，然后使用<code>git clone</code>命令克隆。</p>
+<p>Git支持多种协议，包括<code>https</code>，但通过<code>ssh</code>支持的原生<code>git</code>协议速度最快。</p>
+<h4 id="4-分支管理"><a href="#4-分支管理" class="headerlink" title="4. 分支管理"></a>4. 分支管理</h4><p>分支就是科幻电影里面的平行宇宙，当你正在电脑前努力学习Git的时候，另一个你正在另一个平行宇宙里努力学习SVN。</p>
+<p>如果两个平行宇宙互不干扰，那对现在的你也没啥影响。不过，在某个时间点，两个平行宇宙合并了，结果，你既学会了Git又学会了SVN！</p>
+<p><img src="https://static.liaoxuefeng.com/files/attachments/919021987875136/0" alt="img"></p>
+<h5 id="4-1-创建与合并分支"><a href="#4-1-创建与合并分支" class="headerlink" title="4.1. 创建与合并分支"></a>4.1. 创建与合并分支</h5><p>Git鼓励大量使用分支：</p>
+<p>查看分支：<code>git branch</code></p>
+<p>创建分支：<code>git branch &lt;name&gt;</code></p>
+<p>切换分支：<code>git checkout &lt;name&gt;</code>或者<code>git switch &lt;name&gt;</code></p>
+<p>创建+切换分支：<code>git checkout -b &lt;name&gt;</code>或者<code>git switch -c &lt;name&gt;</code></p>
+<p>合并某分支到当前分支：<code>git merge &lt;name&gt;</code></p>
+<p>删除分支：<code>git branch -d &lt;name&gt;</code></p>
+<h5 id="4-2-解决冲突"><a href="#4-2-解决冲突" class="headerlink" title="4.2. 解决冲突"></a>4.2. 解决冲突</h5><p>当Git无法自动合并分支时，就必须首先解决冲突。解决冲突后，再提交，合并完成。</p>
+<p>解决冲突就是把Git合并失败的文件手动编辑为我们希望的内容，再提交。</p>
+<p>用<code>git log --graph</code>命令可以看到分支合并图。</p>
+<h5 id="4-3-分支策略"><a href="#4-3-分支策略" class="headerlink" title="4.3. 分支策略"></a>4.3. 分支策略</h5><p>通常，合并分支时，如果可能，Git会用<code>Fast forward</code>模式，但这种模式下，删除分支后，会丢掉分支信息。</p>
+<p>如果要强制禁用<code>Fast forward</code>模式，Git就会在merge时生成一个新的commit，这样，从分支历史上就可以看出分支信息。</p>
+<p>下面我们实战一下<code>--no-ff</code>方式的<code>git merge</code>：</p>
+<p>首先，仍然创建并切换<code>dev</code>分支：</p>
+<pre><code>$ git checkout -b dev
+Switched to a new branch &#39;dev&#39;</code></pre>
+<p>修改readme.txt文件，并提交一个新的commit：</p>
+<pre><code>$ git add readme.txt 
+$ git commit -m &quot;add merge&quot;
+[dev f52c633] add merge
+ 1 file changed, 1 insertion(+)</code></pre>
+<p>现在，我们切换回<code>master</code>：</p>
+<pre><code>$ git checkout master
+Switched to branch &#39;master&#39;</code></pre>
+<p>准备合并<code>dev</code>分支，请注意<code>--no-ff</code>参数，表示禁用<code>Fast forward</code>：</p>
+<pre><code>$ git merge --no-ff -m &quot;merge with no-ff&quot; dev
+Merge made by the &#39;recursive&#39; strategy.
+ readme.txt | 1 +
+ 1 file changed, 1 insertion(+)</code></pre>
+<p>因为本次合并要创建一个新的commit，所以加上<code>-m</code>参数，把commit描述写进去。</p>
+<p>合并后，我们用<code>git log</code>看看分支历史：</p>
+<pre><code>$ git log --graph --pretty=oneline --abbrev-commit
+*   e1e9c68 (HEAD -&gt; master) merge with no-ff
+|\  
+| * f52c633 (dev) add merge
+|/  
+*   cf810e4 conflict fixed
+...</code></pre>
+<p>在实际开发中，我们应该按照几个基本原则进行分支管理：</p>
+<p>首先，<code>master</code>分支应该是非常稳定的，也就是仅用来发布新版本，平时不能在上面干活；</p>
+<p>那在哪干活呢？干活都在<code>dev</code>分支上，也就是说，<code>dev</code>分支是不稳定的，到某个时候，比如1.0版本发布时，再把<code>dev</code>分支合并到<code>master</code>上，在<code>master</code>分支发布1.0版本；</p>
+<p>你和你的小伙伴们每个人都在<code>dev</code>分支上干活，每个人都有自己的分支，时不时地往<code>dev</code>分支上合并就可以了。</p>
+<h5 id="4-4-Bug分支"><a href="#4-4-Bug分支" class="headerlink" title="4.4. Bug分支"></a>4.4. Bug分支</h5><p>修复bug时，我们会通过创建新的bug分支进行修复，然后合并，最后删除；</p>
+<p>当手头工作没有完成时，先把工作现场<code>git stash</code>一下，然后去修复bug，修复后，再<code>git stash pop</code>，回到工作现场；</p>
+<p>在master分支上修复的bug，想要合并到当前dev分支，可以用<code>git cherry-pick &lt;commit&gt;</code>命令，把bug提交的修改“复制”到当前分支，避免重复劳动。</p>
+<h5 id="4-5-Feature分支"><a href="#4-5-Feature分支" class="headerlink" title="4.5. Feature分支"></a>4.5. Feature分支</h5><p>开发一个新feature，最好新建一个分支；</p>
+<p>如果要丢弃一个没有被合并过的分支，可以通过<code>git branch -D &lt;name&gt;</code>强行删除。</p>
+<h5 id="4-6-多人协作"><a href="#4-6-多人协作" class="headerlink" title="4.6. 多人协作"></a>4.6. 多人协作</h5><p>查看远程库信息，使用<code>git remote -v</code>；</p>
+<p>本地新建的分支如果不推送到远程，对其他人就是不可见的；</p>
+<p>从本地推送分支，使用<code>git push origin branch-name</code>，如果推送失败，先用<code>git pull</code>抓取远程的新提交；</p>
+<p>在本地创建和远程分支对应的分支，使用<code>git checkout -b branch-name origin/branch-name</code>，本地和远程分支的名称最好一致；</p>
+<p>建立本地分支和远程分支的关联，使用<code>git branch --set-upstream branch-name origin/branch-name</code>；</p>
+<p>从远程抓取分支，使用<code>git pull</code>，如果有冲突，要先处理冲突。</p>
+<h4 id="5-标签管理"><a href="#5-标签管理" class="headerlink" title="5. 标签管理"></a>5. 标签管理</h4><h5 id="5-1-创建标签"><a href="#5-1-创建标签" class="headerlink" title="5.1. 创建标签"></a>5.1. 创建标签</h5><p>命令<code>git tag &lt;tagname&gt;</code>用于新建一个标签，默认为<code>HEAD</code>，也可以指定一个commit id；</p>
+<p>命令<code>git tag -a &lt;tagname&gt; -m &quot;blablabla...&quot;</code>可以指定标签信息；</p>
+<p>命令<code>git tag</code>可以查看所有标签。</p>
+<h5 id="5-2-操作标签"><a href="#5-2-操作标签" class="headerlink" title="5.2. 操作标签"></a>5.2. 操作标签</h5><p>命令<code>git push origin &lt;tagname&gt;</code>可以推送一个本地标签；</p>
+<p>命令<code>git push origin --tags</code>可以推送全部未推送过的本地标签；</p>
+<p>命令<code>git tag -d &lt;tagname&gt;</code>可以删除一个本地标签；</p>
+<p>命令<code>git push origin :refs/tags/&lt;tagname&gt;</code>可以删除一个远程标签。</p>
+<h4 id="6-使用GitHub"><a href="#6-使用GitHub" class="headerlink" title="6. 使用GitHub"></a>6. 使用GitHub</h4><p>在GitHub上，可以任意Fork开源仓库；</p>
+<p>自己拥有Fork后的仓库的读写权限；</p>
+<p>可以推送pull request给官方仓库来贡献代码。</p>
+<h4 id="7-自定义Git"><a href="#7-自定义Git" class="headerlink" title="7. 自定义Git"></a>7. 自定义Git</h4><h5 id="7-1-忽略特殊文件"><a href="#7-1-忽略特殊文件" class="headerlink" title="7.1. 忽略特殊文件"></a>7.1. 忽略特殊文件</h5><p>忽略某些文件时，需要编写<code>.gitignore</code>；</p>
+<p><code>.gitignore</code>文件本身要放到版本库里，并且可以对<code>.gitignore</code>做版本管理！</p>
+
+        
+      </div>
+    </div>
+
+    
+
+  </div>
+
+  <footer class="article-footer">
+    <div class="article-more-info">
+      <div class="article-date">
+  <time datetime="2020-06-02T12:33:17.000Z" itemprop="datePublished">2020-06-02</time>
+</div>
+      
+        <div class="article-category">
+          <a class="article-category-link" href="/categories/git/">git</a>
+        </div>
+      
+      
+        <div class="article-tag">
+          <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/abc/" rel="tag">abc</a></li></ul>
+        </div>
+      
+    </div>
+  </footer>
+
+</article>
+
+    
+  
+    
+      <article
   id="post-diannao"
   class="article article-type-post"
 >
@@ -170,7 +510,7 @@
 
     <div class="article-body">
       <header class="article-title">
-        <a href="/2021/01/02/diannao/">DIANNAO论文导读</a>
+        <a href="/2019/11/20/diannao/">DIANNAO论文导读</a>
       </header>
       <div class="article-entry post-inner-html">
         
@@ -289,7 +629,7 @@
   <footer class="article-footer">
     <div class="article-more-info">
       <div class="article-date">
-  <time datetime="2021-01-02T12:33:17.000Z" itemprop="datePublished">2021-01-02</time>
+  <time datetime="2019-11-20T12:33:17.000Z" itemprop="datePublished">2019-11-20</time>
 </div>
       
         <div class="article-category">
@@ -299,132 +639,6 @@
       
         <div class="article-tag">
           <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/fpga-accelator/" rel="tag">fpga accelator</a></li></ul>
-        </div>
-      
-    </div>
-  </footer>
-
-</article>
-
-    
-  
-    
-      <article
-  id="post-git"
-  class="article article-type-post"
->
-
-  
-
-  <div class="article-inner">
-    
-
-    <div class="article-body">
-      <header class="article-title">
-        <a href="/2021/01/02/git/">GIT 入门</a>
-      </header>
-      <div class="article-entry post-inner-html">
-        
-          <h3 id="GIT-入门"><a href="#GIT-入门" class="headerlink" title="GIT 入门"></a>GIT 入门</h3><p><code>git</code> 是目前最常用的分布式版本控制系统,由 linus 开发。<br>包括<code>GitHub</code>在内的许多代码托管网站均使用<code>git</code>作为版本控制器。</p>
-<h4 id="1-简单的GIT命令"><a href="#1-简单的GIT命令" class="headerlink" title="1. 简单的GIT命令"></a>1. 简单的GIT命令</h4><p>简单的 git 命令如下：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">git init &#x2F;&#x2F;初始化一个代码库  </span><br><span class="line">git add &#x2F;&#x2F;把工作区的修改，提交到暂存区  </span><br><span class="line">git commit &#x2F;&#x2F;把暂存区的修改，保存至本地库  </span><br><span class="line">git push &#x2F;&#x2F;把本地库的记录，推送至远程库</span><br></pre></td></tr></table></figure>
-<h4 id="2-版本管理"><a href="#2-版本管理" class="headerlink" title="2. 版本管理"></a>2. 版本管理</h4><h5 id="2-1-工作区与暂存区"><a href="#2-1-工作区与暂存区" class="headerlink" title="2.1. 工作区与暂存区"></a>2.1. 工作区与暂存区</h5><p>要随时掌握工作区的状态，使用<code>git status</code>命令。</p>
-<p>如果<code>git status</code>告诉你有文件被修改过，用<code>git diff</code>可以查看修改内容。</p>
-<p><code>git add</code>命令实际上就是把要提交的所有修改放到暂存区（Stage），然后，执行<code>git commit</code>就可以一次性把暂存区的所有修改提交到分支。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ git commit -m &quot;**understand** how stage works&quot;</span><br><span class="line">[master e43a48b] understand how stage works</span><br><span class="line"> 2 files changed, 2 insertions(+)</span><br><span class="line"> create mode 100644 LICENSE</span><br></pre></td></tr></table></figure>
-<p>一旦提交后，如果你又没有对工作区做任何修改，那么工作区就是“干净”的：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ git status</span><br><span class="line">On branch master</span><br><span class="line">nothing to commit, working tree clean</span><br></pre></td></tr></table></figure>
-<p>现在版本库变成了这样，暂存区就没有任何内容了：</p>
-<p><img src="https://static.liaoxuefeng.com/files/attachments/919020100829536/0" alt="img"></p>
-<h5 id="2-2-版本回退"><a href="#2-2-版本回退" class="headerlink" title="2.2. 版本回退"></a>2.2. 版本回退</h5><p>现在总结一下：</p>
-<p><code>HEAD</code>指向的版本就是当前版本，因此，Git允许我们在版本的历史之间穿梭，使用命令<code>git reset --hard commit_id</code>。</p>
-<p>穿梭前，用<code>git log</code>可以查看提交历史，以便确定要回退到哪个版本。</p>
-<p>要重返未来，用<code>git reflog</code>查看命令历史，以便确定要回到未来的哪个版本。</p>
-<h5 id="2-3-撤销修改"><a href="#2-3-撤销修改" class="headerlink" title="2.3. 撤销修改"></a>2.3. 撤销修改</h5><p>场景1：当你改乱了工作区某个文件的内容，想直接丢弃工作区的修改时，用命令<code>git checkout -- file</code>。</p>
-<p>场景2：当你不但改乱了工作区某个文件的内容，还添加到了暂存区时，想丢弃修改，分两步，第一步用命令<code>git reset HEAD &lt;file&gt;</code>，就回到了场景1，第二步按场景1操作。</p>
-<h5 id="2-4-删除文件"><a href="#2-4-删除文件" class="headerlink" title="2.4. 删除文件"></a>2.4. 删除文件</h5><p>命令<code>git rm</code>用于删除一个文件。如果一个文件已经被提交到版本库，那么你永远不用担心误删，但是要小心，你只能恢复文件到最新版本，你会丢失<strong>最近一次提交后你修改的内容</strong>。</p>
-<h4 id="3-远程仓库"><a href="#3-远程仓库" class="headerlink" title="3. 远程仓库"></a>3. 远程仓库</h4><p>我们可以通过类似Github的代码托管网站使用git来管理我们的代码</p>
-<h5 id="3-1-添加远程库"><a href="#3-1-添加远程库" class="headerlink" title="3.1. 添加远程库"></a>3.1. 添加远程库</h5><p>要关联一个远程库，使用命令<code>git remote add origin git@server-name:path/repo-name.git</code>；</p>
-<p>关联后，使用命令<code>git push -u origin master</code>第一次推送master分支的所有内容；</p>
-<p>此后，每次本地提交后，只要有必要，就可以使用命令<code>git push origin master</code>推送最新修改；</p>
-<h5 id="3-2-从远程库克隆"><a href="#3-2-从远程库克隆" class="headerlink" title="3.2. 从远程库克隆"></a>3.2. 从远程库克隆</h5><p>要克隆一个仓库，首先必须知道仓库的地址，然后使用<code>git clone</code>命令克隆。</p>
-<p>Git支持多种协议，包括<code>https</code>，但通过<code>ssh</code>支持的原生<code>git</code>协议速度最快。</p>
-<h4 id="4-分支管理"><a href="#4-分支管理" class="headerlink" title="4. 分支管理"></a>4. 分支管理</h4><p>分支就是科幻电影里面的平行宇宙，当你正在电脑前努力学习Git的时候，另一个你正在另一个平行宇宙里努力学习SVN。</p>
-<p>如果两个平行宇宙互不干扰，那对现在的你也没啥影响。不过，在某个时间点，两个平行宇宙合并了，结果，你既学会了Git又学会了SVN！</p>
-<p><img src="https://static.liaoxuefeng.com/files/attachments/919021987875136/0" alt="img"></p>
-<h5 id="4-1-创建与合并分支"><a href="#4-1-创建与合并分支" class="headerlink" title="4.1. 创建与合并分支"></a>4.1. 创建与合并分支</h5><p>Git鼓励大量使用分支：</p>
-<p>查看分支：<code>git branch</code></p>
-<p>创建分支：<code>git branch &lt;name&gt;</code></p>
-<p>切换分支：<code>git checkout &lt;name&gt;</code>或者<code>git switch &lt;name&gt;</code></p>
-<p>创建+切换分支：<code>git checkout -b &lt;name&gt;</code>或者<code>git switch -c &lt;name&gt;</code></p>
-<p>合并某分支到当前分支：<code>git merge &lt;name&gt;</code></p>
-<p>删除分支：<code>git branch -d &lt;name&gt;</code></p>
-<h5 id="4-2-解决冲突"><a href="#4-2-解决冲突" class="headerlink" title="4.2. 解决冲突"></a>4.2. 解决冲突</h5><p>当Git无法自动合并分支时，就必须首先解决冲突。解决冲突后，再提交，合并完成。</p>
-<p>解决冲突就是把Git合并失败的文件手动编辑为我们希望的内容，再提交。</p>
-<p>用<code>git log --graph</code>命令可以看到分支合并图。</p>
-<h5 id="4-3-分支策略"><a href="#4-3-分支策略" class="headerlink" title="4.3. 分支策略"></a>4.3. 分支策略</h5><p>通常，合并分支时，如果可能，Git会用<code>Fast forward</code>模式，但这种模式下，删除分支后，会丢掉分支信息。</p>
-<p>如果要强制禁用<code>Fast forward</code>模式，Git就会在merge时生成一个新的commit，这样，从分支历史上就可以看出分支信息。</p>
-<p>下面我们实战一下<code>--no-ff</code>方式的<code>git merge</code>：</p>
-<p>首先，仍然创建并切换<code>dev</code>分支：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ git checkout -b dev</span><br><span class="line">Switched to a new branch &#39;dev&#39;</span><br></pre></td></tr></table></figure>
-<p>修改readme.txt文件，并提交一个新的commit：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ git add readme.txt </span><br><span class="line">$ git commit -m &quot;add merge&quot;</span><br><span class="line">[dev f52c633] add merge</span><br><span class="line"> 1 file changed, 1 insertion(+)</span><br></pre></td></tr></table></figure>
-<p>现在，我们切换回<code>master</code>：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ git checkout master</span><br><span class="line">Switched to branch &#39;master&#39;</span><br></pre></td></tr></table></figure>
-<p>准备合并<code>dev</code>分支，请注意<code>--no-ff</code>参数，表示禁用<code>Fast forward</code>：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ git merge --no-ff -m &quot;merge with no-ff&quot; dev</span><br><span class="line">Merge made by the &#39;recursive&#39; strategy.</span><br><span class="line"> readme.txt | 1 +</span><br><span class="line"> 1 file changed, 1 insertion(+)</span><br></pre></td></tr></table></figure>
-<p>因为本次合并要创建一个新的commit，所以加上<code>-m</code>参数，把commit描述写进去。</p>
-<p>合并后，我们用<code>git log</code>看看分支历史：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ git log --graph --pretty&#x3D;oneline --abbrev-commit</span><br><span class="line">*   e1e9c68 (HEAD -&gt; master) merge with no-ff</span><br><span class="line">|\  </span><br><span class="line">| * f52c633 (dev) add merge</span><br><span class="line">|&#x2F;  </span><br><span class="line">*   cf810e4 conflict fixed</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
-<p>在实际开发中，我们应该按照几个基本原则进行分支管理：</p>
-<p>首先，<code>master</code>分支应该是非常稳定的，也就是仅用来发布新版本，平时不能在上面干活；</p>
-<p>那在哪干活呢？干活都在<code>dev</code>分支上，也就是说，<code>dev</code>分支是不稳定的，到某个时候，比如1.0版本发布时，再把<code>dev</code>分支合并到<code>master</code>上，在<code>master</code>分支发布1.0版本；</p>
-<p>你和你的小伙伴们每个人都在<code>dev</code>分支上干活，每个人都有自己的分支，时不时地往<code>dev</code>分支上合并就可以了。</p>
-<h5 id="4-4-Bug分支"><a href="#4-4-Bug分支" class="headerlink" title="4.4. Bug分支"></a>4.4. Bug分支</h5><p>修复bug时，我们会通过创建新的bug分支进行修复，然后合并，最后删除；</p>
-<p>当手头工作没有完成时，先把工作现场<code>git stash</code>一下，然后去修复bug，修复后，再<code>git stash pop</code>，回到工作现场；</p>
-<p>在master分支上修复的bug，想要合并到当前dev分支，可以用<code>git cherry-pick &lt;commit&gt;</code>命令，把bug提交的修改“复制”到当前分支，避免重复劳动。</p>
-<h5 id="4-5-Feature分支"><a href="#4-5-Feature分支" class="headerlink" title="4.5. Feature分支"></a>4.5. Feature分支</h5><p>开发一个新feature，最好新建一个分支；</p>
-<p>如果要丢弃一个没有被合并过的分支，可以通过<code>git branch -D &lt;name&gt;</code>强行删除。</p>
-<h5 id="4-6-多人协作"><a href="#4-6-多人协作" class="headerlink" title="4.6. 多人协作"></a>4.6. 多人协作</h5><p>查看远程库信息，使用<code>git remote -v</code>；</p>
-<p>本地新建的分支如果不推送到远程，对其他人就是不可见的；</p>
-<p>从本地推送分支，使用<code>git push origin branch-name</code>，如果推送失败，先用<code>git pull</code>抓取远程的新提交；</p>
-<p>在本地创建和远程分支对应的分支，使用<code>git checkout -b branch-name origin/branch-name</code>，本地和远程分支的名称最好一致；</p>
-<p>建立本地分支和远程分支的关联，使用<code>git branch --set-upstream branch-name origin/branch-name</code>；</p>
-<p>从远程抓取分支，使用<code>git pull</code>，如果有冲突，要先处理冲突。</p>
-<h4 id="5-标签管理"><a href="#5-标签管理" class="headerlink" title="5. 标签管理"></a>5. 标签管理</h4><h5 id="5-1-创建标签"><a href="#5-1-创建标签" class="headerlink" title="5.1. 创建标签"></a>5.1. 创建标签</h5><p>命令<code>git tag &lt;tagname&gt;</code>用于新建一个标签，默认为<code>HEAD</code>，也可以指定一个commit id；</p>
-<p>命令<code>git tag -a &lt;tagname&gt; -m &quot;blablabla...&quot;</code>可以指定标签信息；</p>
-<p>命令<code>git tag</code>可以查看所有标签。</p>
-<h5 id="5-2-操作标签"><a href="#5-2-操作标签" class="headerlink" title="5.2. 操作标签"></a>5.2. 操作标签</h5><p>命令<code>git push origin &lt;tagname&gt;</code>可以推送一个本地标签；</p>
-<p>命令<code>git push origin --tags</code>可以推送全部未推送过的本地标签；</p>
-<p>命令<code>git tag -d &lt;tagname&gt;</code>可以删除一个本地标签；</p>
-<p>命令<code>git push origin :refs/tags/&lt;tagname&gt;</code>可以删除一个远程标签。</p>
-<h4 id="6-使用GitHub"><a href="#6-使用GitHub" class="headerlink" title="6. 使用GitHub"></a>6. 使用GitHub</h4><p>在GitHub上，可以任意Fork开源仓库；</p>
-<p>自己拥有Fork后的仓库的读写权限；</p>
-<p>可以推送pull request给官方仓库来贡献代码。</p>
-<h4 id="7-自定义Git"><a href="#7-自定义Git" class="headerlink" title="7. 自定义Git"></a>7. 自定义Git</h4><h5 id="7-1-忽略特殊文件"><a href="#7-1-忽略特殊文件" class="headerlink" title="7.1. 忽略特殊文件"></a>7.1. 忽略特殊文件</h5><p>忽略某些文件时，需要编写<code>.gitignore</code>；</p>
-<p><code>.gitignore</code>文件本身要放到版本库里，并且可以对<code>.gitignore</code>做版本管理！</p>
-
-        
-      </div>
-    </div>
-
-    
-
-  </div>
-
-  <footer class="article-footer">
-    <div class="article-more-info">
-      <div class="article-date">
-  <time datetime="2021-01-02T12:33:17.000Z" itemprop="datePublished">2021-01-02</time>
-</div>
-      
-        <div class="article-category">
-          <a class="article-category-link" href="/categories/git/">git</a>
-        </div>
-      
-      
-        <div class="article-tag">
-          <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/abc/" rel="tag">abc</a></li></ul>
         </div>
       
     </div>
@@ -478,15 +692,19 @@
       <ul>
         
           <li>
+            <a href="/2021/01/03/Tensorflow/">Tensorflow</a>
+          </li>
+        
+          <li>
             <a href="/2021/01/03/GEAch3/">GEAch3</a>
           </li>
         
           <li>
-            <a href="/2021/01/02/diannao/">DIANNAO论文导读</a>
+            <a href="/2020/06/02/git/">GIT 入门</a>
           </li>
         
           <li>
-            <a href="/2021/01/02/git/">GIT 入门</a>
+            <a href="/2019/11/20/diannao/">DIANNAO论文导读</a>
           </li>
         
       </ul>
@@ -498,7 +716,7 @@
   <div class="widget-wrap widget-archive">
     <div class="widget-title"><span>Archive</span></div>
     <div class="widget-inner">
-      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2021/01/">2021</a></li></ul>
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2021/01/">2021</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/06/">2020</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/11/">2019</a></li></ul>
     </div>
   </div>
 
